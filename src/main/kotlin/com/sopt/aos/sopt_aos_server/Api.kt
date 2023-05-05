@@ -8,6 +8,12 @@ import org.springframework.web.bind.annotation.*
 class Api(
     private val logic: Logic
 ) {
+
+    @GetMapping("/readiness")
+    fun healthCheck() : Response<Nothing?> {
+        return Response.success(message = "서버 통신에 성공했습니다.", data = null)
+    }
+
     @PostMapping("/sign-up")
     fun SignUp(
         @RequestBody signUpRequest: SignUpRequest
