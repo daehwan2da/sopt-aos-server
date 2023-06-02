@@ -70,7 +70,7 @@ class Api(
             val result = logic.saveMusic(title = title, singer = singer, url = imageUpload(image), userId = id)
 
             return ResponseEntity.ok(
-                Response.success(message = "회원가입에 성공했습니다.", data = MusicResponse.from(result))
+                Response.success(message = "음악 등록에 성공했습니다.", data = MusicResponse.from(result))
             )
         } catch (t: Throwable) {
             throw UploadEx()
