@@ -3,7 +3,6 @@ package com.sopt.aos.sopt_aos_server
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.fasterxml.jackson.annotation.JsonInclude
-import org.apache.tomcat.util.http.fileupload.impl.FileSizeLimitExceededException
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.ResponseEntity
@@ -42,6 +41,51 @@ class Api(
                 UploadResponse(imageUrl = "https://my-daehwan-bucket.s3.ap-northeast-2.amazonaws.com/${uuid}")
             )
         );
+    }
+
+    fun imageUpload(file: MultipartFile): String {
+        val uuid = UUID.randomUUID().toString()
+
+        s3Client.putObject(
+            "my-daehwan-bucket",
+            uuid,
+            file.inputStream,
+            ObjectMetadata().apply {
+                contentType = file.contentType;
+                contentLength = file.size
+            })
+
+        return "https://my-daehwan-bucket.s3.ap-northeast-2.amazonaws.com/${uuid}"
+    }
+
+    @PostMapping("/music")
+    fun register(
+        @RequestHeader("id") id: String,
+        @RequestParam image: MultipartFile,
+        @RequestParam title: String,
+        @RequestParam singer: String
+    ): ResponseEntity<Response<MusicResponse>> {
+        try {
+            // upload Image
+            val result = logic.saveMusic(title = title, singer = singer, url = imageUpload(image), userId = id)
+
+            return ResponseEntity.ok(
+                Response.success(message = "회원가입에 성공했습니다.", data = MusicResponse.from(result))
+            )
+        } catch (t: Throwable) {
+            throw UploadEx()
+        }
+    }
+
+    @GetMapping("/{id}/music")
+    fun getList(
+        @PathVariable("id") id: String
+    ): ResponseEntity<Response<MusicsResponse>> {
+        val musics: List<Music> = logic.findMusic(id)
+
+        return ResponseEntity.ok(
+            Response.success(message = "음악 리스트 조회", data = MusicsResponse.from(musics))
+        )
     }
 
     @GetMapping("/readiness")
@@ -118,7 +162,7 @@ class Api(
 
     @ExceptionHandler(DataIntegrityViolationException::class)
     fun handleDataException(e: DataIntegrityViolationException): ResponseEntity<Response<Nothing>> =
-        ResponseEntity.status(409).body(Response.error(message = "중복된 아이디로 가입을 시도했습니다."))
+        ResponseEntity.status(409).body(Response.error(message = "중복된 리소스가 발생했습니다."))
 
     @ExceptionHandler(UploadEx::class)
     fun handleUpload(e: UploadEx): ResponseEntity<Response<Nothing>> =
@@ -151,6 +195,24 @@ data class SignUpResponse(
 ) {
     companion object {
         fun from(user: User) = SignUpResponse(name = user.name, skill = user.skill)
+    }
+}
+
+data class MusicResponse(
+    val title: String,
+    val singer: String,
+    val url: String
+) {
+    companion object {
+        fun from(music: Music) = MusicResponse(title = music.title, singer = music.singer, url = music.url)
+    }
+}
+
+data class MusicsResponse(
+    val musicList: List<MusicResponse>
+) {
+    companion object {
+        fun from(musics: List<Music>) = MusicsResponse(musics.map { MusicResponse.from(it) })
     }
 }
 
